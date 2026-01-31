@@ -12,4 +12,21 @@ def save_to_bronze(df: DataFrame, source_filename: str, output_folder: str):
     
     output_path = os.path.join(BRONZE_DIR, output_folder)
     
-    df_final.write.format("parquet").mode("overwrite").save(output_path)
+    (df_final.write
+        .format("parquet")
+        .mode("overwrite")
+        .save(output_path)
+    )
+
+def save_to_silver(df: DataFrame, output_folder: str):
+    """
+    Salva o DataFrame na camada Silver em formato Delta Lake.
+    """
+    output_path = os.path.join("data/silver", output_folder)
+    
+    (df.write
+        .format("delta")
+        .mode("overwrite")
+        .option("overwriteSchema", "true")
+        .save(output_path)
+    )
