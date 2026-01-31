@@ -11,27 +11,10 @@ def process_gps_to_bronze(spark: SparkSession):
         
         # Leitura como texto devido à formatação irregular
         df_raw = spark.read.text(raw_path)
-        df_filtered = df_raw.filter(~F.col("value").startswith("_id"))
 
-        # Lógica de Parse
-        df_parsed = df_filtered.withColumn(
-            "data_part", F.split(F.col("value"), ",", 2).getItem(1)
-        ).withColumn(
-            "cols", F.split(F.col("data_part"), ";")
-        )
+        df_raw.show(5, truncate=False)
 
-        # Mapeamento limpo de colunas
-        gps_columns = ["EV", "HR", "LT", "LG", "NV", "VL", "NL", "DG", "SV", "DT"]
-        
-        # Regex de seleção
-        select_exprs = [
-            F.col("cols").getItem(i).alias(col_name) 
-            for i, col_name in enumerate(gps_columns)
-        ]
-
-        df_final = df_parsed.select(*select_exprs).filter(F.col("EV").isNotNull())
-
-        save_to_bronze(df_final, "tempo_real_gps.json", "gps")
+        save_to_bronze(df_raw, "tempo_real_gps.json", "gps")
 
     except Exception as e:
         print(f"Falha no fluxo GPS: {e}")

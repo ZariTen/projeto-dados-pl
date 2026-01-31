@@ -14,7 +14,27 @@ def process_gps_to_silver(spark: SparkSession):
         df_bronze = spark.read.format("parquet").load(bronze_path)
 
         # 2. Tratamento e Tipagem
-        df_silver = df_bronze \
+        df_filtered = df_bronze.filter(~F.col("value").startswith("_id"))
+
+        # Lógica de Parse
+        df_parsed = df_filtered.withColumn(
+            "data_part", F.split(F.col("value"), ",", 2).getItem(1)
+        ).withColumn(
+            "cols", F.split(F.col("data_part"), ";")
+        )
+
+        # Mapeamento limpo de colunas
+        gps_columns = ["EV", "HR", "LT", "LG", "NV", "VL", "NL", "DG", "SV", "DT"]
+        
+        # Regex de seleção
+        select_exprs = [
+           F.col("cols").getItem(i).alias(col_name) 
+           for i, col_name in enumerate(gps_columns)
+        ]
+
+        df_bronze_final = df_parsed.select(*select_exprs).filter(F.col("EV").isNotNull())
+
+        df_silver = df_bronze_final \
             .withColumn("numero_veiculo", F.col("NV").cast(IntegerType())) \
             .withColumn("cod_evento", F.col("EV").cast(IntegerType())) \
             .withColumn("latitude", F.regexp_replace(F.col("LT"), ",", ".").cast(DoubleType())) \
