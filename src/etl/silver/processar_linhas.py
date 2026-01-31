@@ -13,8 +13,6 @@ def process_linhas_to_silver(spark: SparkSession):
         bronze_path = os.path.join("data/bronze", "linhas")
         df_bronze = spark.read.format("parquet").load(bronze_path)
 
-        df_bronze.show(5, truncate=False)
-
         # 2. Tratamento
         df_silver = df_bronze \
             .withColumn("numero_linha", F.col("NumeroLinha").cast(IntegerType())) \

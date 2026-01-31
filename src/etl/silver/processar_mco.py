@@ -3,6 +3,7 @@ import os
 from pyspark.sql import functions as F
 from pyspark.sql.types import IntegerType, LongType
 from src.utils.save import save_to_silver
+from src.utils.quality import sanitize_columns
 
 def process_mco_to_silver(spark: SparkSession):
     """
@@ -12,6 +13,8 @@ def process_mco_to_silver(spark: SparkSession):
         # 1. Leitura
         bronze_path = os.path.join("data/bronze", "mco")
         df_bronze = spark.read.format("parquet").load(bronze_path)
+
+        df_bronze = sanitize_columns(df_bronze)
 
         # 2. Limpeza e Tipagem
         df_clean = df_bronze.withColumn("data_viagem", F.to_date(F.col("viagem"), "dd/MM/yyyy")) \
