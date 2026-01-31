@@ -1,8 +1,13 @@
 from pyspark.sql import DataFrame
-from pyspark.sql.functions import col
+from pyspark.sql import functions as F
 
-def check_no_nulls(df: DataFrame, columns: list):
-    for c in columns:
-        null_count = df.filter(col(c).isNull()).count()
-        if null_count > 0:
-            raise ValueError(f"Coluna {c} contém {null_count} nulos.")
+def sanitize_columns(df: DataFrame) -> DataFrame:
+    """
+    Padroniza nomes de colunas: minúsculas, sem espaços nas pontas,
+    e substitui espaços internos por underscores.
+    """
+    new_columns = [
+        F.col(c).alias(c.strip().lower().replace(" ", "_")) 
+        for c in df.columns
+    ]
+    return df.select(*new_columns)

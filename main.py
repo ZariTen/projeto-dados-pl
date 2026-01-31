@@ -1,5 +1,5 @@
 from src.spark_session import get_spark_session
-from src.etl.bronze import run_bronze_layer
+from src.etl.ingestao_bronze import run_bronze_layer
 from src.etl.silver import run_silver_layer
 
 def main():
