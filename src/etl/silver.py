@@ -1,7 +1,6 @@
 import os
 from pyspark.sql import SparkSession
 from pyspark.sql import functions as F
-from pyspark.sql.functions import current_timestamp, lit, col, regexp_replace
 from pyspark.sql.types import IntegerType, LongType, DoubleType
 
 
