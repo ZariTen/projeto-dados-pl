@@ -56,6 +56,15 @@ def process_mco_to_bronze(spark: SparkSession):
         df_bronze = df.withColumn("_ingestion_timestamp", current_timestamp()) \
                       .withColumn("_source_file", lit("mco_consolidado.csv"))
 
+        # Remover espacos e deixar minusculo nos nomes das colunas
+        for c in df_bronze.columns:
+            df_bronze = df_bronze.withColumnRenamed(c, c.strip().lower())
+
+        # Adicionar underscore nas colunas com espaços
+        for c in df_bronze.columns:
+            new_c = c.replace(" ", "_")
+            df_bronze = df_bronze.withColumnRenamed(c, new_c)
+
         # 4. Escrita (Overwrite para testes)
         output_path = os.path.join(BRONZE_DIR, "mco")
         df_bronze.write.format("parquet").mode("overwrite").save(output_path)
