@@ -2,7 +2,7 @@ import os
 from pyspark.sql import SparkSession
 from pyspark.sql import functions as F
 from pyspark.sql.functions import current_timestamp, lit, col, regexp_replace
-from pyspark.sql.types import IntegerType, LongType
+from pyspark.sql.types import IntegerType, LongType, DoubleType
 
 
 def process_mco_to_silver(spark: SparkSession):
@@ -76,44 +76,71 @@ def process_mco_to_silver(spark: SparkSession):
         # 3. Escrita formato Delta Lake
         silver_path = os.path.join("data/silver", "mco")
         df_silver.write.format("delta").mode("overwrite").save(silver_path)
-        df_silver.show(5)
 
         print(f"MCO salvo na Silver: {silver_path}")
 
     except Exception as e:
         print(f"Falha no fluxo MCO para Silver: {e}")
+        raise e
 
 def process_gps_to_silver(spark: SparkSession):
     """
-    Processa os dados de GPS da camada Bronze para a camada Silver.
+    Processa dados de GPS (Telemetria) com otimização para Geoespacial e Time Series.
     """
     try:
         # 1. Leitura
         bronze_path = os.path.join("data/bronze", "gps")
         df_bronze = spark.read.format("parquet").load(bronze_path)
 
-        # 2. Transformações
-        df_silver = df_bronze.withColumn("numero_veiculo", F.col("NV").cast("integer")) \
-                             .withColumn("latitude", regexp_replace(F.col("LT"), ",", ".").cast("double")) \
-                             .withColumn("longitude", regexp_replace(F.col("LG"), ",", ".").cast("double")) \
-                             .withColumn("timestamp", F.to_timestamp(F.col("HR"), "yyyyMMddHHmmss")) \
-                             .withColumn("data_dia", F.date_format(F.col("timestamp"), "yyyy-MM-dd")) \
-                             .withColumn("hora_dia", F.date_format(F.col("timestamp"), "HH:mm:ss")) \
-                             .withColumn("velocidade", F.col("VL").cast("integer")) \
-                             .withColumn("numero_linha", F.col("NL").cast("integer")) \
-                             .withColumn("direcao", F.col("DG").cast("integer")) \
-                             .withColumn("caminho", F.when(F.col("SV") == 1, "IDA").otherwise("VOLTA")) \
-                             .withColumn("distancia_percorrida", F.col("DT").cast("integer")) \
-                             .drop("LT", "LG", "HR", "timestamp", "SV", "_ingestion_timestamp", "_source_file", "NV", "VL", "NL", "DG", "DT", "EV")
+        # 2. Tratamento e Tipagem
+        df_silver = df_bronze \
+            .withColumn("numero_veiculo", F.col("NV").cast(IntegerType())) \
+            .withColumn("cod_evento", F.col("EV").cast(IntegerType())) \
+            .withColumn("latitude", F.regexp_replace(F.col("LT"), ",", ".").cast(DoubleType())) \
+            .withColumn("longitude", F.regexp_replace(F.col("LG"), ",", ".").cast(DoubleType())) \
+            .withColumn("velocidade_kmh", F.col("VL").cast(IntegerType())) \
+            .withColumn("numero_linha", F.col("NL").cast(IntegerType())) \
+            .withColumn("direcao_graus", F.col("DG").cast(IntegerType())) \
+            .withColumn("distancia_percorrida", F.col("DT").cast(IntegerType())) \
+            .withColumn("sentido_viagem", F.when(F.col("SV") == "1", "IDA")
+                                           .when(F.col("SV") == "2", "VOLTA")
+                                           .otherwise("INDEFINIDO"))
+
+        df_silver = df_silver.withColumn("timestamp_gps", F.to_timestamp(F.col("HR"), "yyyyMMddHHmmss"))
+        
+        # Colunas auxiliares para particionamento
+        df_silver = df_silver.withColumn("data_particao", F.to_date(F.col("timestamp_gps"))) \
+                             .withColumn("hora", F.hour(F.col("timestamp_gps")))
+
+        # Limpeza
+        df_silver = df_silver.filter((F.col("latitude") != 0.0) & (F.col("longitude") != 0.0))
+        df_silver = df_silver.dropDuplicates(["numero_veiculo", "timestamp_gps"])
+
+
+        cols_final = [
+            "timestamp_gps", "numero_veiculo", "numero_linha", "sentido_viagem",
+            "latitude", "longitude", "velocidade_kmh", "distancia_percorrida",
+            "direcao_graus", "cod_evento", "data_particao", "hora"
+        ]
+        
+        df_final = df_silver.select(cols_final)
 
         # 3. Escrita formato Delta Lake
         silver_path = os.path.join("data/silver", "gps")
-        df_silver.write.format("delta").mode("overwrite").save(silver_path)
+        
+        (df_final.write
+            .format("delta")
+            .mode("overwrite")
+            .partitionBy("data_particao") 
+            .option("overwriteSchema", "true")
+            .save(silver_path)
+        )
 
         print(f"GPS salvo na Silver: {silver_path}")
 
     except Exception as e:
         print(f"Falha no fluxo GPS para Silver: {e}")
+        raise e
 
 def process_bronze_to_silver(spark: SparkSession):
     """
