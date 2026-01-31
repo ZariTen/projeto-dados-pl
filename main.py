@@ -9,6 +9,8 @@ def main():
     print("\n--- Validação Rápida ---")
     try:
         spark.read.parquet("data/bronze/gps").show(5)
+        spark.read.parquet("data/bronze/linhas").show(5)
+        spark.read.parquet("data/bronze/mco").show(5)
     except:
         print("Tabela GPS ainda não criada.")
 
