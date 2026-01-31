@@ -37,9 +37,21 @@ def count_nulls_per_column(df: DataFrame, camada: str, table_name: str, batch_si
 
     return null_counts
 
+def count_duplicates(df: DataFrame, camada: str, table_name: str) -> int:
+    """
+    Conta registros duplicados. 
+    """
+    total_count = df.count()
+    distinct_count = df.dropDuplicates().count()
+    duplicate_count = total_count - distinct_count 
+    if duplicate_count > 0:
+        print(f"Atenção: Existem {duplicate_count} registros duplicados na tabela {table_name} da camada {camada}.")
+
+
 def check_data_quality(spark: SparkSession, camada: str, table_name: str, batch_size: int = 5) -> dict:
     """
     Verifica a qualidade dos dados contando valores nulos por coluna.
     """
     df = spark.read.format("parquet").load(f"data/{camada}/{table_name}")
     count_nulls_per_column(df, camada, table_name, batch_size)
+    count_duplicates(df, camada, table_name)

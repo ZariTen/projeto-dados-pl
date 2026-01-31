@@ -9,6 +9,11 @@ from src.utils.quality import check_data_quality
 
 def run_bronze_layer(spark: SparkSession):
     """Orquestrador da camada Bronze."""
+    # Limpa a pasta bronze antes de processar novos dados
+    bronze_path = "data/bronze"
+    if os.path.exists(bronze_path):
+        shutil.rmtree(bronze_path)
+
     process_gps_to_bronze(spark)
     process_mco_to_bronze(spark)
     process_linhas_to_bronze(spark)
