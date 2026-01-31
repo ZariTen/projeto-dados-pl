@@ -13,9 +13,11 @@ def process_linhas_to_silver(spark: SparkSession):
         bronze_path = os.path.join("data/bronze", "linhas")
         df_bronze = spark.read.format("parquet").load(bronze_path)
 
+        df_bronze.show(5, truncate=False)
+
         # 2. Tratamento
         df_silver = df_bronze \
-            .withColumn("id_linha_interno", F.col("NumeroLinha").cast(IntegerType())) \
+            .withColumn("numero_linha", F.col("NumeroLinha").cast(IntegerType())) \
             .withColumn("cod_bruto", F.trim(F.col("Linha"))) \
             .withColumn("nome_bruto", F.trim(F.upper(F.col("Nome")))) \
             .withColumn("cod_linha_publico", F.split(F.col("cod_bruto"), "-").getItem(0)) \
@@ -37,7 +39,7 @@ def process_linhas_to_silver(spark: SparkSession):
             .withColumn("desc_variacao", F.coalesce(F.trim(F.col("arr_itinerario").getItem(2)), F.lit("NENHUMA")))
 
         cols_final = [
-            "id_linha_interno",
+            "numero_linha",
             "cod_linha_publico",
             "num_sublinha",
             "nome_bruto",
@@ -47,7 +49,7 @@ def process_linhas_to_silver(spark: SparkSession):
         ]
         
         df_silver = df_silver.select(cols_final)
-        df_silver = df_silver.dropDuplicates(["id_linha_interno"])
+        df_silver = df_silver.dropDuplicates(["numero_linha"])
 
         # 5. Escrita
         save_to_silver(df_silver, "linhas")

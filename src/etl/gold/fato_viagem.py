@@ -17,7 +17,7 @@ def run_fato_viagem(spark: SparkSession):
         # 2. Join GPS e Linhas por número da linha
         df_viagem = df_gps.join(
             df_linhas,
-            df_gps.numero_linha == df_linhas.id_linha_interno,
+            df_gps.numero_linha == df_linhas.numero_linha,
             how="left"
         )
 
