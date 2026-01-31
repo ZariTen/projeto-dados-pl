@@ -35,7 +35,7 @@ def download_file(url: str, local_filename: str) -> str:
         return local_path
     except Exception as e:
         print(f"Erro ao baixar {url}: {e}")
-        raise
+        raise e
 
 def process_mco_to_bronze(spark: SparkSession):
     """
@@ -73,6 +73,7 @@ def process_mco_to_bronze(spark: SparkSession):
         
     except Exception as e:
         print(f"Falha no fluxo MCO: {e}")
+        raise e
 
 def process_linhas_to_bronze(spark: SparkSession):
     """
@@ -100,6 +101,7 @@ def process_linhas_to_bronze(spark: SparkSession):
         print(f"Linhas salvo na Bronze: {output_path}")
     except Exception as e:
         print(f"Falha no fluxo Linhas: {e}")
+        raise e
 
 def process_gps_to_bronze(spark: SparkSession):
     """
@@ -144,6 +146,7 @@ def process_gps_to_bronze(spark: SparkSession):
 
     except Exception as e:
         print(f"Falha no fluxo GPS: {e}")
+        raise e
 
 def run_bronze_layer(spark: SparkSession):
     print("Iniciando Camada Bronze...")
