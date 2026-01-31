@@ -21,8 +21,6 @@ def count_nulls_per_column(df: DataFrame, camada: str, table_name: str, batch_si
     total_cols = len(columns)
     null_counts = {}
 
-    print(f"Iniciando verificação de nulos na tabela {camada}: {table_name}")
-
     for i in range(0, total_cols, batch_size):
         batch_cols = columns[i : i + batch_size]
         
@@ -33,7 +31,7 @@ def count_nulls_per_column(df: DataFrame, camada: str, table_name: str, batch_si
 
     for col_name, count in null_counts.items():
         if count > 0:
-            print(f" - Coluna '{col_name}' possui {count} valores nulos.")
+            print(f" - Coluna '{col_name}' da tabela {table_name} da camada {camada} possui {count} valores nulos.")
 
     return null_counts
 

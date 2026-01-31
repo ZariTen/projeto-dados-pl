@@ -7,7 +7,7 @@ def main():
     spark = get_spark_session()
     
     #run_bronze_layer(spark)
-    process_bronze_to_silver(spark)
+    #process_bronze_to_silver(spark)
     run_gold_layer(spark)
 
     spark.stop()
