@@ -21,7 +21,7 @@ def process_mco_to_silver(spark: SparkSession):
                 .withColumn("dh_fechamento", F.to_timestamp(F.col("data_fechamento"), "dd/MM/yyyy HH:mm")) \
                 .withColumn("extensao_metros", F.col("extensao").cast(IntegerType())) \
                 .withColumn("total_usuarios", F.col("total_usuarios").cast(IntegerType())) \
-                .withColumn("sublinha", F.col("sublinha").cast(IntegerType())) \
+                .withColumn("numero_linha", F.col("sublinha").cast(IntegerType())) \
                 .withColumn("pc", F.col("pc").cast(IntegerType())) \
                 .withColumn("catraca_saida", F.col("catraca_saida").cast(LongType())) \
                 .withColumn("catraca_chegada", F.col("catraca_chegada").cast(LongType()))
@@ -73,7 +73,7 @@ def process_mco_to_silver(spark: SparkSession):
         df_silver = df_silver.withColumn("ano", F.year("data_viagem")) \
                           .withColumn("mes", F.month("data_viagem"))
 
-        cols_to_drop = ["viagem", "data_fechamento", "extensao", "total_usuarios", "sublinha", 
+        cols_to_drop = ["viagem", "data_fechamento", "extensao",
                         "concessionaria", "pc", "falha_mecanica", "evento_inseguro", 
                         "saida", "chegada", "_ingestion_timestamp", "_source_file"]
         
