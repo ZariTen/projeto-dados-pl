@@ -75,12 +75,78 @@ def process_mco_to_silver(spark: SparkSession):
 
         # 3. Escrita formato Delta Lake
         silver_path = os.path.join("data/silver", "mco")
-        df_silver.write.format("delta").mode("overwrite").save(silver_path)
+        (df_silver.write
+            .format("delta")
+            .mode("overwrite")
+            .option("overwriteSchema", "true")
+            .save(silver_path)
+        )
 
         print(f"MCO salvo na Silver: {silver_path}")
 
     except Exception as e:
         print(f"Falha no fluxo MCO para Silver: {e}")
+        raise e
+
+def process_linhas_to_silver(spark: SparkSession):
+    """
+    Processa os dados da tabela de linhas da camada Bronze para a camada Silver.
+    """
+    try:
+        # 1. Leitura
+        bronze_path = os.path.join("data/bronze", "linhas")
+        df_bronze = spark.read.format("parquet").load(bronze_path)
+
+        # 2. Tratamento
+        df_silver = df_bronze \
+            .withColumn("id_linha_interno", F.col("NumeroLinha").cast(IntegerType())) \
+            .withColumn("cod_bruto", F.trim(F.col("Linha"))) \
+            .withColumn("nome_bruto", F.trim(F.upper(F.col("Nome")))) \
+            .withColumn("cod_linha_publico", F.split(F.col("cod_bruto"), "-").getItem(0)) \
+            .withColumn("num_sublinha", F.coalesce(F.split(F.col("cod_bruto"), "-").getItem(1).cast(IntegerType()), F.lit(0)))
+
+        # 3. Lógica
+        
+        # Passo A: Normalização dos Separadores
+        col_nome_normalizado = F.regexp_replace(F.col("nome_bruto"), "\\\\", "/")
+        col_nome_normalizado = F.regexp_replace(col_nome_normalizado, " - ", "/") 
+        
+        # Passo B: Quebra em Array baseada no separador unificado "/"
+        df_silver = df_silver.withColumn("arr_itinerario", F.split(col_nome_normalizado, "/"))
+        
+        # Passo C: Extração Posicional
+        df_silver = df_silver \
+            .withColumn("bairro_origem", F.trim(F.col("arr_itinerario").getItem(0))) \
+            .withColumn("bairro_destino", F.trim(F.col("arr_itinerario").getItem(1))) \
+            .withColumn("desc_variacao", F.trim(F.col("arr_itinerario").getItem(2))) 
+
+        cols_final = [
+            "id_linha_interno",
+            "cod_linha_publico",
+            "num_sublinha",
+            "nome_bruto",
+            "bairro_origem",
+            "bairro_destino",
+            "desc_variacao"
+        ]
+        
+        df_silver = df_silver.select(cols_final)
+        df_silver = df_silver.dropDuplicates(["id_linha_interno"])
+
+        # 5. Escrita
+        silver_path = os.path.join("data/silver", "linhas")
+        
+        (df_silver.write
+            .format("delta")
+            .mode("overwrite")
+            .option("overwriteSchema", "true")
+            .save(silver_path)
+        )
+
+        print(f"Linhas salvo na Silver: {silver_path}")
+
+    except Exception as e:
+        print(f"Falha no fluxo Linhas para Silver: {e}")
         raise e
 
 def process_gps_to_silver(spark: SparkSession):
@@ -148,6 +214,8 @@ def process_bronze_to_silver(spark: SparkSession):
     """
     process_gps_to_silver(spark)
     process_mco_to_silver(spark)
+    process_linhas_to_silver(spark)
+
 def run_silver_layer(spark):
     """
     Executa o processo ETL para a camada Silver.
