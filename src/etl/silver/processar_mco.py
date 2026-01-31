@@ -62,15 +62,22 @@ def process_mco_to_silver(spark: SparkSession):
         )
 
         # Tratamento boolean
-        df_silver = df_silver.withColumn("teve_falha_mecanica", F.col("falha_mecanica") == 1) \
-                             .withColumn("teve_evento_inseguro", F.col("evento_inseguro") == 1)
+        df_silver = df_silver \
+            .withColumn("teve_falha_mecanica", F.coalesce(F.col("falha_mecanica").cast(IntegerType()), F.lit(0)) == 1) \
+            .withColumn("teve_evento_inseguro", F.coalesce(F.col("evento_inseguro").cast(IntegerType()), F.lit(0)) == 1)
 
         # Otimizaçao
         df_silver = df_silver.withColumn("ano", F.year("data_viagem")) \
                           .withColumn("mes", F.month("data_viagem"))
 
-        df_silver = df_silver.drop("viagem", "data_fechamento", "extensao", "total_usuarios", "sublinha", "concessionaria", "pc"
-                                   , "falha_mecanica", "evento_inseguro", "saida", "chegada", "_ingestion_timestamp", "_source_file")
+        cols_to_drop = ["viagem", "data_fechamento", "extensao", "total_usuarios", "sublinha", 
+                        "concessionaria", "pc", "falha_mecanica", "evento_inseguro", 
+                        "saida", "chegada", "_ingestion_timestamp", "_source_file"]
+        
+        if "" in df_silver.columns:
+            cols_to_drop.append("")
+        
+        df_silver = df_silver.drop(*cols_to_drop)
 
         # 3. Escrita formato Delta Lake
         save_to_silver(df_silver, "mco")
