@@ -3,3 +3,4 @@ delta-spark==3.2
 pandas
 requests
 pytest
+fake-useragent

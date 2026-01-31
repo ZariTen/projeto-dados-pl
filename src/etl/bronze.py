@@ -4,6 +4,7 @@ import shutil
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import current_timestamp, lit
 from src.config import LANDING_ZONE, BRONZE_DIR, URL_MCO, URL_GPS
+from fake_useragent import UserAgent
 
 def download_file(url: str, local_filename: str) -> str:
     """
@@ -14,10 +15,10 @@ def download_file(url: str, local_filename: str) -> str:
     local_path = os.path.join(LANDING_ZONE, local_filename)
     
     print(f"Iniciando download de: {url}...")
+
+    ua = UserAgent()
+    headers = {'User-Agent': ua.random}
     
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
-    }
 
     try:
         with requests.get(url, headers=headers, stream=True) as r:
@@ -67,8 +68,7 @@ def process_gps_to_bronze(spark: SparkSession):
         # 1. Download
         raw_path = download_file(URL_GPS, "gps_raw.json")
         
-        # 2. Leitura (JSON pode ser multiline ou line-delimited)
-        # Assumindo JSON padrão de API
+        # 2. Leitura
         df = spark.read.option("multiline", "true").json(raw_path)
         
         # 3. Metadados
@@ -89,5 +89,4 @@ def run_bronze_layer(spark: SparkSession):
     process_mco_to_bronze(spark)
     process_gps_to_bronze(spark)
     
-    # Limpeza da Landing Zone
     shutil.rmtree(LANDING_ZONE)
