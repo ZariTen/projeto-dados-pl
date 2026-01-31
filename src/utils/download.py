@@ -17,9 +17,6 @@ def download_file(url: str, local_filename: str) -> str:
     os.makedirs(LANDING_ZONE, exist_ok=True)
     local_path = os.path.join(LANDING_ZONE, local_filename)
 
-    if os.path.exists(local_path):
-        return local_path
-    
     ua = UserAgent()
     headers = {'User-Agent': ua.random}
 
