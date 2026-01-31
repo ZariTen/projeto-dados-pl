@@ -12,8 +12,6 @@ def process_gps_to_bronze(spark: SparkSession):
         # Leitura como texto devido à formatação irregular
         df_raw = spark.read.text(raw_path)
 
-        df_raw.show(5, truncate=False)
-
         save_to_bronze(df_raw, "tempo_real_gps.json", "gps")
 
     except Exception as e:

@@ -12,7 +12,6 @@ def process_mco_to_bronze(spark: SparkSession):
         df = spark.read.format("csv") \
             .option("header", "true") \
             .option("delimiter", ";") \
-            .option("inferSchema", "true") \
             .load(raw_path)
 
         df_sanitized = sanitize_columns(df)

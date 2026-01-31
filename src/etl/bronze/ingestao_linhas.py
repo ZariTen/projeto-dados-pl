@@ -11,7 +11,6 @@ def process_linhas_to_bronze(spark: SparkSession):
         df = spark.read.format("csv") \
             .option("header", "true") \
             .option("delimiter", ",") \
-            .option("inferSchema", "true") \
             .load(raw_path)
         
         save_to_bronze(df, "linhas_sistema.csv", "linhas")
