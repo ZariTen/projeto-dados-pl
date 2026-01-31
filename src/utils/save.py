@@ -30,3 +30,16 @@ def save_to_silver(df: DataFrame, output_folder: str):
         .option("overwriteSchema", "true")
         .save(output_path)
     )
+
+def save_to_gold(df: DataFrame, output_folder: str):
+    """
+    Salva o DataFrame na camada Gold em formato Delta Lake.
+    """
+    output_path = os.path.join("data/gold", output_folder)
+    
+    (df.write
+        .format("delta")
+        .mode("overwrite")
+        .option("overwriteSchema", "true")
+        .save(output_path)
+    )
