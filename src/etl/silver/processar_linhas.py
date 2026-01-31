@@ -34,7 +34,7 @@ def process_linhas_to_silver(spark: SparkSession):
         df_silver = df_silver \
             .withColumn("bairro_origem", F.trim(F.col("arr_itinerario").getItem(0))) \
             .withColumn("bairro_destino", F.trim(F.col("arr_itinerario").getItem(1))) \
-            .withColumn("desc_variacao", F.trim(F.col("arr_itinerario").getItem(2))) 
+            .withColumn("desc_variacao", F.coalesce(F.trim(F.col("arr_itinerario").getItem(2)), F.lit("NENHUMA")))
 
         cols_final = [
             "id_linha_interno",
