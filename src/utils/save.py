@@ -18,28 +18,44 @@ def save_to_bronze(df: DataFrame, source_filename: str, output_folder: str):
         .save(output_path)
     )
 
-def save_to_silver(df: DataFrame, output_folder: str):
+def save_to_silver(df: DataFrame, output_folder: str, partition_cols: list = None):
     """
-    Salva o DataFrame na camada Silver em formato Delta Lake.
+    Salva o DataFrame na camada Silver em formato Delta Lake com particionamento opcional.
+    
+    Args:
+        df: DataFrame a ser salvo.
+        output_folder: Nome da pasta de destino em data/silver.
+        partition_cols: Lista de colunas para particionamento. Se None, sem particionamento.
     """
     output_path = os.path.join("data/silver", output_folder)
     
-    (df.write
+    writer = (df.write
         .format("delta")
         .mode("overwrite")
-        .option("overwriteSchema", "true")
-        .save(output_path)
-    )
+        .option("overwriteSchema", "true"))
+    
+    if partition_cols:
+        writer = writer.partitionBy(*partition_cols)
+    
+    writer.save(output_path)
 
-def save_to_gold(df: DataFrame, output_folder: str):
+def save_to_gold(df: DataFrame, output_folder: str, partition_cols: list = None):
     """
-    Salva o DataFrame na camada Gold em formato Delta Lake.
+    Salva o DataFrame na camada Gold em formato Delta Lake com particionamento opcional.
+    
+    Args:
+        df: DataFrame a ser salvo.
+        output_folder: Nome da pasta de destino em data/gold.
+        partition_cols: Lista de colunas para particionamento. Se None, sem particionamento.
     """
     output_path = os.path.join("data/gold", output_folder)
     
-    (df.write
+    writer = (df.write
         .format("delta")
         .mode("overwrite")
-        .option("overwriteSchema", "true")
-        .save(output_path)
-    )
+        .option("overwriteSchema", "true"))
+    
+    if partition_cols:
+        writer = writer.partitionBy(*partition_cols)
+    
+    writer.save(output_path)
