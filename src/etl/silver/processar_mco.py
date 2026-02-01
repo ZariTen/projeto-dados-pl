@@ -8,7 +8,7 @@ from src.utils.quality import sanitize_columns
 # Constantes
 MCO_COLS_TO_CHECK = ["ocorrencia", "justificativa", "falha_mecanica", "evento_inseguro"]
 MCO_COLS_TO_DROP = ["viagem", "data_fechamento", "extensao",
-                    "concessionaria", "pc", "falha_mecanica", "evento_inseguro", 
+                    "concessionaria", "pc", "falha_mecanica", "evento_inseguro",
                     "saida", "chegada", "_ingestion_timestamp", "_source_file"]
 
 
@@ -162,3 +162,4 @@ def process_mco_to_silver(
     except Exception as e:
         print(f"Falha no fluxo MCO para Silver: {e}")
         raise e
+

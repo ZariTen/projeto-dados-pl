@@ -73,7 +73,7 @@ def enrich_and_aggregate_mco(df_mco: DataFrame, df_linhas: DataFrame) -> DataFra
     ).agg(
         F.count("*").alias("qtd_viagens_realizadas"),
         F.sum(F.col("teve_falha_mecanica").cast("int")).alias("qtd_falhas_mecanicas"),
-        F.round(F.avg("duracao_viagem_minutos"), 2).alias("duracao_media_viagem_min"),
+        F.round(F.avg("duracao_viagem_minutos"), 2).alias("duracao_media_viagem_min")
     )
 
 

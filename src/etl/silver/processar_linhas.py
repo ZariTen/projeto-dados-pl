@@ -107,3 +107,4 @@ def process_linhas_to_silver(
     except Exception as e:
         print(f"Falha no fluxo Linhas para Silver: {e}")
         raise e
+
