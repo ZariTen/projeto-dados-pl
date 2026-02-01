@@ -160,6 +160,32 @@ projeto-dados-pl/
 
 ## Uso e Execução
 
+### Ambiente Python
+
+Escolha **uma** das opções abaixo para garantir Python 3.11:
+
+**Opção A — Python 3.11 local**
+
+```bash
+python3.11 -m venv .venv
+source .venv/bin/activate
+python --version
+```
+
+**Opção B — uv (usa .python-version se existir)**
+
+```bash
+uv python install
+uv venv
+source .venv/bin/activate
+```
+
+### Instalar dependências
+
+```bash
+pip install -r requirements.txt
+```
+
 ### Executar o Pipeline Completo
 
 ```bash
