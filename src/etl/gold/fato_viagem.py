@@ -84,7 +84,7 @@ def enrich_and_aggregate_mco(df_mco: DataFrame, df_linhas: DataFrame) -> DataFra
         DataFrame agregado com indicadores de viagem.
     """
     # Join MCO + Linhas
-    df_enriched = df_mco.join(df_linhas, on="numero_linha", how="left")
+    df_enriched = df_mco.join(F.broadcast(df_linhas), on="numero_linha", how="left")
     
     # Agregação com validação de duração
     return df_enriched.filter(F.col("duracao_viagem_minutos") >= 0).groupBy(
