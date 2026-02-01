@@ -62,9 +62,8 @@ graph TB
     end
     
     subgraph GOLD["Gold Layer"]
-        G_FORMAT["Formato: Delta Lake + CSV<br/>Analytics-Ready"]
+        G_FORMAT["Formato: Delta Lake<br/>Analytics-Ready"]
         G_FATO["data/gold/fato_performance_diaria/"]
-        G_CSV["data/gold/fato_performance_diaria_csv/"]
         G_METRICS["Métricas de Negócio<br/> KPIs Agregados"]
     end
     
@@ -97,11 +96,10 @@ graph TB
     S_LINHAS -->|fato_viagem.py| G_FORMAT
     
     G_FORMAT --> G_FATO
-    G_FORMAT --> G_CSV
     G_FORMAT -.-> G_METRICS
     
     G_FATO --> BI
-    G_CSV --> REPORTS
+    G_FATO --> REPORTS
     G_FATO --> ML
     
     style SOURCES fill:#0277bd,color:#fff,stroke:#01579b,stroke-width:3px
@@ -129,7 +127,6 @@ graph TB
     style GOLD fill:#f9a825,color:#000,stroke:#f57f17,stroke-width:3px
     style G_FORMAT fill:#fbc02d,color:#000
     style G_FATO fill:#fdd835,color:#000
-    style G_CSV fill:#fff59d,color:#000
     style G_METRICS fill:#ffee58,color:#000
     
     style CONSUME fill:#2e7d32,color:#fff,stroke:#1b5e20,stroke-width:3px
