@@ -4,6 +4,10 @@ from pyspark.sql import SparkSession, DataFrame
 from pyspark.sql import functions as F
 from pyspark.sql.types import IntegerType, DoubleType
 from src.utils.save import save_to_silver
+from src.etl.silver.validar_silver import (
+    validate_input_structure,
+    validate_parsed_structure,
+)
 
 # Constantes
 GPS_COLUMNS = ["EV", "HR", "LT", "LG", "NV", "VL", "NL", "DG", "SV", "DT"]
@@ -114,8 +118,10 @@ def process_gps_data_pipeline(df_bronze: DataFrame, gps_columns: List[str] = GPS
     Returns:
         DataFrame processado e pronto para Silver
     """
+    validate_input_structure(df_bronze, ["value"])
     df = filter_raw_data(df_bronze)
     df = parse_gps_data(df, gps_columns)
+    validate_parsed_structure(df, gps_columns)
     df = cast_columns_to_types(df)
     df = transform_sentido_viagem(df)
     df = add_timestamp(df)

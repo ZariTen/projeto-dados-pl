@@ -3,6 +3,10 @@ from pyspark.sql import SparkSession, DataFrame
 from pyspark.sql import functions as F
 from pyspark.sql.types import IntegerType
 from src.utils.save import save_to_silver
+from src.etl.silver.validar_silver import (
+    validate_input_structure,
+    validate_final_structure,
+)
 
 # Constantes
 LINHAS_FINAL_COLUMNS = [
@@ -14,6 +18,8 @@ LINHAS_FINAL_COLUMNS = [
     "bairro_destino",
     "desc_variacao"
 ]
+
+LINHAS_SOURCE_COLUMNS = ["NumeroLinha", "Linha", "Nome"]
 
 
 def cast_initial_columns(df: DataFrame) -> DataFrame:
@@ -72,10 +78,12 @@ def process_linhas_data_pipeline(df_bronze: DataFrame) -> DataFrame:
     Returns:
         DataFrame processado e pronto para Silver
     """
+    validate_input_structure(df_bronze, LINHAS_SOURCE_COLUMNS)
     df = cast_initial_columns(df_bronze)
     df = normalize_separators(df)
     df = extract_itinerary_details(df)
     df = remove_duplicates(df, ["numero_linha"])
+    validate_final_structure(df, LINHAS_FINAL_COLUMNS)
     df = select_final_columns(df, LINHAS_FINAL_COLUMNS)
     
     return df

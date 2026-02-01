@@ -4,12 +4,29 @@ from pyspark.sql import functions as F
 from pyspark.sql.types import IntegerType, LongType
 from src.utils.save import save_to_silver
 from src.utils.quality import sanitize_columns
+from src.etl.silver.validar_silver import (
+    validate_input_structure,
+    validate_final_structure,
+)
 
 # Constantes
 MCO_COLS_TO_CHECK = ["ocorrencia", "justificativa", "falha_mecanica", "evento_inseguro"]
 MCO_COLS_TO_DROP = ["viagem", "data_fechamento", "extensao",
                     "concessionaria", "pc", "falha_mecanica", "evento_inseguro",
                     "saida", "chegada", "_ingestion_timestamp", "_source_file"]
+MCO_SOURCE_COLUMNS = [
+    "viagem", "data_fechamento", "extensao", "sublinha", "pc",
+    "catraca_saida", "catraca_chegada", "saida", "chegada",
+    "concessionaria", "falha_mecanica", "evento_inseguro",
+    "ocorrencia", "justificativa"
+]
+MCO_FINAL_REQUIRED_COLUMNS = [
+    "data_viagem", "dh_fechamento", "extensao_metros", "numero_linha",
+    "catraca_saida", "catraca_chegada", "ts_saida", "ts_chegada",
+    "duracao_viagem_minutos", "nome_consorcio", "desc_tipo_viagem",
+    "teve_falha_mecanica", "teve_evento_inseguro", "ano", "mes",
+    "ocorrencia", "justificativa"
+]
 
 
 def sanitize_and_cast_columns(df: DataFrame) -> DataFrame:
@@ -124,6 +141,7 @@ def process_mco_data_pipeline(df_bronze: DataFrame) -> DataFrame:
         DataFrame processado e pronto para Silver
     """
     df = sanitize_and_cast_columns(df_bronze)
+    validate_input_structure(df, MCO_SOURCE_COLUMNS)
     df = clean_empty_strings(df, MCO_COLS_TO_CHECK)
     df = create_timestamps(df)
     df = calculate_trip_duration(df)
@@ -132,6 +150,7 @@ def process_mco_data_pipeline(df_bronze: DataFrame) -> DataFrame:
     df = create_boolean_columns(df)
     df = add_partitioning_columns(df)
     df = drop_unnecessary_columns(df, MCO_COLS_TO_DROP)
+    validate_final_structure(df, MCO_FINAL_REQUIRED_COLUMNS)
     
     return df
 
