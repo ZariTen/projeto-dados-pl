@@ -172,7 +172,6 @@ graph TD
         FATO["fato_viagem.py"]
         
         TB_FATO[("gold/fato_performance_diaria/<br/>Delta Lake")]
-        TB_CSV[("gold/fato_performance_diaria_csv/<br/>CSV")]
     end
     
     MCO --> BMCO
@@ -196,7 +195,6 @@ graph TD
     TB_SLINHAS --> FATO
     
     FATO --> TB_FATO
-    FATO --> TB_CSV
     
     style MCO fill:#c62828,color:#fff
     style GPS fill:#c62828,color:#fff
@@ -218,7 +216,6 @@ graph TD
     
     style FATO fill:#f9a825,color:#000
     style TB_FATO fill:#fdd835,color:#000
-    style TB_CSV fill:#fff59d,color:#000
 ```
 
 ## Estrutura de Diretórios
@@ -265,8 +262,7 @@ projeto-dados-pl/
 │   │   ├── linhas/
 │   │   └── mco/
 │   └── gold/                         # Data Marts em Delta Lake
-│       ├── fato_performance_diaria/
-│       └── fato_performance_diaria_csv/
+│       └── fato_performance_diaria/
 │
 ├── dicionario/                       # Documentação de dados
 │   ├── Tabela GPS.md                 # Dicionário da tabela GPS

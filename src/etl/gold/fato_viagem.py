@@ -211,10 +211,6 @@ def run_fato_performance_diaria(
         validate_fato_performance_structure(df_final, FATO_FINAL_COLUMNS)
         validate_fato_performance_data_quality(df_final)
         logger.info("Validações de estrutura e qualidade aprovadas")
-
-        # Exportação CSV
-        df_final.write.option("header", True).csv("data/gold/fato_performance_diaria_csv", mode="overwrite")
-        logger.info("Arquivo CSV exportado")
         
         # Escrita em Delta com particionamento
         save_function(df_final, "fato_performance_diaria", partition_cols=["data_referencia"])
