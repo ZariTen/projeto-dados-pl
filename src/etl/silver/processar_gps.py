@@ -1,4 +1,5 @@
 import os
+import logging
 from typing import Callable, List
 from pyspark.sql import SparkSession, DataFrame
 from pyspark.sql import functions as F
@@ -8,6 +9,8 @@ from src.etl.silver.validar_silver import (
     validate_input_structure,
     validate_parsed_structure,
 )
+
+logger = logging.getLogger(__name__)
 
 # Constantes
 GPS_COLUMNS = ["EV", "HR", "LT", "LG", "NV", "VL", "NL", "DG", "SV", "DT"]
@@ -21,6 +24,12 @@ GPS_FINAL_COLUMNS = [
 def filter_raw_data(df: DataFrame) -> DataFrame:
     """
     Remove registros com identificadores inválidos.
+    
+    Args:
+        df: DataFrame de entrada com coluna 'value'.
+        
+    Returns:
+        DataFrame filtrado sem registros de metadados.
     """
     return df.filter(~F.col("value").startswith("_id"))
 
@@ -28,6 +37,13 @@ def filter_raw_data(df: DataFrame) -> DataFrame:
 def parse_gps_data(df: DataFrame, columns: List[str]) -> DataFrame:
     """
     Extrai e mapeia as colunas de GPS da string bruta.
+    
+    Args:
+        df: DataFrame com coluna 'value' contendo dados GPS em formato separado.
+        columns: Lista de nomes de colunas esperadas.
+        
+    Returns:
+        DataFrame com colunas extraídas e nomeadas.
     """
     df_parsed = df.withColumn(
         "data_part", F.split(F.col("value"), ",", 2).getItem(1)
@@ -46,6 +62,12 @@ def parse_gps_data(df: DataFrame, columns: List[str]) -> DataFrame:
 def cast_columns_to_types(df: DataFrame) -> DataFrame:
     """
     Converte colunas para tipos apropriados.
+    
+    Args:
+        df: DataFrame com colunas em tipo string.
+        
+    Returns:
+        DataFrame com tipos casting corretos.
     """
     return df \
         .withColumn("numero_veiculo", F.col("NV").cast(IntegerType())) \
@@ -61,6 +83,12 @@ def cast_columns_to_types(df: DataFrame) -> DataFrame:
 def transform_sentido_viagem(df: DataFrame) -> DataFrame:
     """
     Converte código de sentido para descrição.
+    
+    Args:
+        df: DataFrame com coluna 'SV' contendo códigos de sentido.
+        
+    Returns:
+        DataFrame com coluna 'sentido_viagem' mapeada.
     """
     return df.withColumn(
         "sentido_viagem", 
@@ -73,13 +101,26 @@ def transform_sentido_viagem(df: DataFrame) -> DataFrame:
 def add_timestamp(df: DataFrame, hr_format: str = "yyyyMMddHHmmss") -> DataFrame:
     """
     Cria coluna de timestamp a partir do horário.
+    
+    Args:
+        df: DataFrame com coluna 'HR' em formato string.
+        hr_format: Formato esperado do timestamp. Default: "yyyyMMddHHmmss".
+        
+    Returns:
+        DataFrame com coluna 'timestamp_gps' adicionada.
     """
     return df.withColumn("timestamp_gps", F.to_timestamp(F.col("HR"), hr_format))
 
 
 def add_auxiliary_columns(df: DataFrame) -> DataFrame:
     """
-    Adiciona colunas auxiliares para particionamento.
+    Adiciona colunas auxiliares para particionamento e análise.
+    
+    Args:
+        df: DataFrame com coluna 'timestamp_gps'.
+        
+    Returns:
+        DataFrame com colunas 'data_particao' e 'hora' adicionadas.
     """
     return df \
         .withColumn("data_particao", F.to_date(F.col("timestamp_gps"))) \
@@ -88,7 +129,13 @@ def add_auxiliary_columns(df: DataFrame) -> DataFrame:
 
 def clean_invalid_coordinates(df: DataFrame) -> DataFrame:
     """
-    Remove registros com coordenadas inválidas
+    Remove registros com coordenadas inválidas (latitude/longitude zero).
+    
+    Args:
+        df: DataFrame com colunas 'latitude' e 'longitude'.
+        
+    Returns:
+        DataFrame sem registros de coordenadas inválidas.
     """
     return df.filter((F.col("latitude") != 0.0) & (F.col("longitude") != 0.0))
 
@@ -96,6 +143,13 @@ def clean_invalid_coordinates(df: DataFrame) -> DataFrame:
 def remove_duplicates(df: DataFrame, subset: List[str]) -> DataFrame:
     """
     Remove duplicatas baseado em colunas chave.
+    
+    Args:
+        df: DataFrame de entrada.
+        subset: Lista de colunas para considerar na deduplicação.
+        
+    Returns:
+        DataFrame sem duplicatas.
     """
     return df.dropDuplicates(subset)
 
@@ -103,6 +157,13 @@ def remove_duplicates(df: DataFrame, subset: List[str]) -> DataFrame:
 def select_final_columns(df: DataFrame, columns: List[str]) -> DataFrame:
     """
     Seleciona e ordena as colunas finais.
+    
+    Args:
+        df: DataFrame com todas as colunas.
+        columns: Lista de nomes de colunas finais desejadas.
+        
+    Returns:
+        DataFrame com apenas colunas selecionadas na ordem especificada.
     """
     return df.select(columns)
 
@@ -136,26 +197,34 @@ def process_gps_data_pipeline(df_bronze: DataFrame, gps_columns: List[str] = GPS
 def process_gps_to_silver(
     spark: SparkSession,
     bronze_path: str = "data/bronze/gps",
-    save_function: Callable[[DataFrame, str], None] = save_to_silver
+    save_function: Callable[[DataFrame, str, list], None] = save_to_silver
 ):
     """
-    Processa dados de GPS
+    Processa dados de GPS da camada Bronze para Silver.
     
     Args:
-        spark: SparkSession
-        bronze_path: Caminho dos dados bronze
-        save_function: Função para salvar dados
+        spark: SparkSession ativa.
+        bronze_path: Caminho dos dados bronze. Default: "data/bronze/gps".
+        save_function: Função para salvar dados em Silver. Default: save_to_silver.
+        
+    Raises:
+        Exception: Se houver erro no pipeline de processamento.
     """
     try:
+        logger.info("Iniciando processamento de GPS para Silver")
+        
         # Leitura
         df_bronze = spark.read.format("parquet").load(bronze_path)
+        logger.info(f"Dados Bronze carregados: {df_bronze.count()} registros")
         
         # Processamento
         df_final = process_gps_data_pipeline(df_bronze, GPS_COLUMNS)
+        logger.info(f"Pipeline GPS processado: {df_final.count()} registros após transformações")
         
-        # Escrita
-        save_function(df_final, "gps")
+        # Escrita com particionamento
+        save_function(df_final, "gps", partition_cols=["data_particao"])
+        logger.info("Dados GPS salvos em Silver com particionamento por data_particao")
 
     except Exception as e:
-        print(f"Falha no fluxo GPS para Silver: {e}")
+        logger.error(f"Falha no fluxo GPS para Silver: {e}", exc_info=True)
         raise e

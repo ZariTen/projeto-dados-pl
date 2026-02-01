@@ -1,10 +1,13 @@
 import os
+import logging
 from typing import Callable, List
 from pyspark.sql import SparkSession, DataFrame
 from pyspark.sql import functions as F
 from pyspark.sql.types import IntegerType
 from src.utils.save import save_to_gold
 from src.etl.gold.validar_gold import validate_fato_performance_structure, validate_fato_performance_data_quality
+
+logger = logging.getLogger(__name__)
 
 # Constantes
 FATO_FINAL_COLUMNS = [
@@ -26,10 +29,18 @@ FATO_FINAL_COLUMNS = [
 def prepare_gps_metrics(df_gps: DataFrame) -> DataFrame:
     """
     Limpa, prepara chaves e agrega os dados de GPS.
+    Valida ranges de velocidade e distância.
+    
+    Args:
+        df_gps: DataFrame Silver de GPS.
+        
+    Returns:
+        DataFrame agregado com métricas de GPS por dia/linha.
     """
     df_clean = df_gps \
         .withColumn("join_cod_publico", F.col("numero_linha").cast("int")) \
-        .filter((F.col("velocidade_kmh") >= 0) & (F.col("velocidade_kmh") < 120))
+        .filter((F.col("velocidade_kmh") >= 0) & (F.col("velocidade_kmh") <= 120)) \
+        .filter(F.col("distancia_percorrida") >= 0)
 
     return df_clean.groupBy("data_particao", "join_cod_publico").agg(
         F.round(F.avg("velocidade_kmh"), 2).alias("vel_media_gps"),
@@ -41,6 +52,12 @@ def prepare_gps_metrics(df_gps: DataFrame) -> DataFrame:
 def prepare_linhas_lookup(df_linhas: DataFrame) -> DataFrame:
     """
     Prepara a tabela de linhas para enriquecimento (cria chave de join e seleciona colunas).
+    
+    Args:
+        df_linhas: DataFrame Silver de Linhas.
+        
+    Returns:
+        DataFrame de lookup com colunas selecionadas para join.
     """
     return df_linhas \
         .withColumn("join_cod_publico", F.col("cod_linha_publico").cast("int")) \
@@ -57,12 +74,20 @@ def prepare_linhas_lookup(df_linhas: DataFrame) -> DataFrame:
 def enrich_and_aggregate_mco(df_mco: DataFrame, df_linhas: DataFrame) -> DataFrame:
     """
     Realiza o join do MCO com dados de Linha e agrega os indicadores de viagem.
+    Valida duração de viagem.
+    
+    Args:
+        df_mco: DataFrame Silver de MCO.
+        df_linhas: DataFrame Silver de Linhas (lookup).
+        
+    Returns:
+        DataFrame agregado com indicadores de viagem.
     """
     # Join MCO + Linhas
     df_enriched = df_mco.join(df_linhas, on="numero_linha", how="left")
     
-    # Agregação
-    return df_enriched.groupBy(
+    # Agregação com validação de duração
+    return df_enriched.filter(F.col("duracao_viagem_minutos") >= 0).groupBy(
         "data_viagem", 
         "numero_linha", 
         "join_cod_publico", 
@@ -81,6 +106,13 @@ def enrich_and_aggregate_mco(df_mco: DataFrame, df_linhas: DataFrame) -> DataFra
 def join_mco_gps_and_finalize(df_mco_agg: DataFrame, df_gps_agg: DataFrame) -> DataFrame:
     """
     Unifica os dados agregados de MCO e GPS, trata nulos e seleciona colunas finais.
+    
+    Args:
+        df_mco_agg: DataFrame agregado de MCO.
+        df_gps_agg: DataFrame agregado de GPS.
+        
+    Returns:
+        DataFrame final com todas as colunas Fato.
     """
     # Join Left usando Alias para clareza
     df_gold = df_mco_agg.alias("mco").join(
@@ -110,8 +142,10 @@ def join_mco_gps_and_finalize(df_mco_agg: DataFrame, df_gps_agg: DataFrame) -> D
         "bairro_destino"
     )
 
-    # Tratamento de Nulos
-    return df_final.na.fill(0, subset=["vel_media_gps", "distancia_total_gps_metros"])
+    # Tratamento de Nulos com validação de ranges
+    return df_final.na.fill(0, subset=["vel_media_gps", "distancia_total_gps_metros"]) \
+        .filter((F.col("vel_media_gps") >= 0) & (F.col("vel_media_gps") <= 120)) \
+        .filter(F.col("distancia_total_gps_metros") >= 0)
 
 
 def process_fato_performance_pipeline(
@@ -123,12 +157,12 @@ def process_fato_performance_pipeline(
     Orquestra o pipeline de transformação da Fato Performance Diária.
     
     Args:
-        df_gps: DataFrame Silver de GPS
-        df_linhas: DataFrame Silver de Linhas
-        df_mco: DataFrame Silver de MCO
+        df_gps: DataFrame Silver de GPS.
+        df_linhas: DataFrame Silver de Linhas.
+        df_mco: DataFrame Silver de MCO.
         
     Returns:
-        DataFrame Gold pronto
+        DataFrame Gold pronto com todas validações aplicadas.
     """
     # 1. Preparação das fontes
     df_gps_agg = prepare_gps_metrics(df_gps)
@@ -146,28 +180,46 @@ def process_fato_performance_pipeline(
 def run_fato_performance_diaria(
     spark: SparkSession, 
     silver_base_path: str = "data/silver",
-    save_function: Callable[[DataFrame, str], None] = save_to_gold
+    save_function: Callable[[DataFrame, str, list], None] = save_to_gold
 ):
     """
-    Executa o fluxo completo da Fato Performance Diária (Leitura -> Pipeline -> Escrita).
+    Executa o fluxo completo da Fato Performance Diária (Leitura -> Pipeline -> Validação -> Escrita).
+    
+    Args:
+        spark: SparkSession ativa.
+        silver_base_path: Caminho base dos dados Silver. Default: "data/silver".
+        save_function: Função para salvar dados Gold. Default: save_to_gold.
+        
+    Raises:
+        Exception: Se houver erro no pipeline ou validação.
     """
     try:
+        logger.info("Iniciando processamento de Fato Performance Diária para Gold")
+        
         # Leitura
         df_gps = spark.read.format("delta").load(os.path.join(silver_base_path, "gps"))
         df_linhas = spark.read.format("delta").load(os.path.join(silver_base_path, "linhas"))
         df_mco = spark.read.format("delta").load(os.path.join(silver_base_path, "mco"))
+        
+        logger.info(f"Dados Silver carregados: GPS={df_gps.count()}, Linhas={df_linhas.count()}, MCO={df_mco.count()}")
 
         # Processamento
         df_final = process_fato_performance_pipeline(df_gps, df_linhas, df_mco)
+        logger.info(f"Pipeline Fato processado: {df_final.count()} registros")
 
         # Validações
         validate_fato_performance_structure(df_final, FATO_FINAL_COLUMNS)
         validate_fato_performance_data_quality(df_final)
+        logger.info("Validações de estrutura e qualidade aprovadas")
 
+        # Exportação CSV
         df_final.write.option("header", True).csv("data/gold/fato_performance_diaria_csv", mode="overwrite")
+        logger.info("Arquivo CSV exportado")
         
-        save_function(df_final, "fato_performance_diaria")
+        # Escrita em Delta com particionamento
+        save_function(df_final, "fato_performance_diaria", partition_cols=["data_referencia"])
+        logger.info("Dados Gold salvos em Delta com particionamento por data_referencia")
 
     except Exception as e:
-        print(f"Falha no fluxo Fato Performance Diária: {e}")
+        logger.error(f"Falha no fluxo Fato Performance Diária: {e}", exc_info=True)
         raise e
