@@ -30,19 +30,112 @@ Os dados são obtidos do **Portal de Dados Abertos de Belo Horizonte**:
 ### Diagrama da Arquitetura do Data Lake
 
 ```mermaid
-graph LR
-    A["Fontes Externas<br/>(APIs PBH)"] -->|Download| B["Landing Zone<br/>(Dados Brutos)"]
-    B -->|Ingestão| C["Bronze<br/>(Raw Data)"]
-    C -->|Transformação| D["Silver<br/>(Dados Limpos)"]
-    D -->|Agregação| E["Gold<br/>(Data Mart)"]
-    E -->|Consultas| F["BI/Analytics"]
+graph TB
+    subgraph SOURCES["Fontes Externas"]
+        API["Portal de Dados Abertos PBH<br/>APIs REST"]
+        API_MCO["dados.pbh.gov.br/mco"]
+        API_GPS["dados.pbh.gov.br/gps"]
+        API_LINHAS["dados.pbh.gov.br/linhas"]
+        
+        API --> API_MCO
+        API --> API_GPS
+        API --> API_LINHAS
+    end
     
-    style A fill:#0277bd,color:#fff
-    style B fill:#f57c00,color:#fff
-    style C fill:#d84315,color:#fff
-    style D fill:#512da8,color:#fff
-    style E fill:#fbc02d,color:#000
-    style F fill:#2e7d32,color:#fff
+    subgraph LANDING["Landing Zone"]
+        DOWN["Download HTTP<br/>Dados JSON brutos"]
+    end
+    
+    subgraph BRONZE["Bronze Layer"]
+        B_FORMAT["Formato: Parquet<br/>Imutável • Append-Only"]
+        B_GPS["data/bronze/gps/"]
+        B_MCO["data/bronze/mco/"]
+        B_LINHAS["data/bronze/linhas/"]
+    end
+    
+    subgraph SILVER["Silver Layer"]
+        S_FORMAT["Formato: Delta Lake<br/>Versionado • ACID"]
+        S_GPS["data/silver/gps/"]
+        S_MCO["data/silver/mco/"]
+        S_LINHAS["data/silver/linhas/"]
+        S_VALID["✓ Validação de Qualidade<br/>✓ Deduplicação<br/>✓ Tipagem"]
+    end
+    
+    subgraph GOLD["Gold Layer"]
+        G_FORMAT["Formato: Delta Lake + CSV<br/>Analytics-Ready"]
+        G_FATO["data/gold/fato_performance_diaria/"]
+        G_CSV["data/gold/fato_performance_diaria_csv/"]
+        G_METRICS["Métricas de Negócio<br/> KPIs Agregados"]
+    end
+    
+    subgraph CONSUME["Consumo"]
+        BI["Power BI / Tableau"]
+        ML["Machine Learning"]
+        REPORTS["Relatórios Gerenciais"]
+    end
+    
+    API_MCO -.->|HTTP GET| DOWN
+    API_GPS -.->|HTTP GET| DOWN
+    API_LINHAS -.->|HTTP GET| DOWN
+    
+    DOWN -->|ingestao_bronze.py| B_FORMAT
+    B_FORMAT --> B_GPS
+    B_FORMAT --> B_MCO
+    B_FORMAT --> B_LINHAS
+    
+    B_GPS -->|processar_gps.py| S_FORMAT
+    B_MCO -->|processar_mco.py| S_FORMAT
+    B_LINHAS -->|processar_linhas.py| S_FORMAT
+    
+    S_FORMAT --> S_GPS
+    S_FORMAT --> S_MCO
+    S_FORMAT --> S_LINHAS
+    S_FORMAT -.-> S_VALID
+    
+    S_GPS -->|fato_viagem.py| G_FORMAT
+    S_MCO -->|fato_viagem.py| G_FORMAT
+    S_LINHAS -->|fato_viagem.py| G_FORMAT
+    
+    G_FORMAT --> G_FATO
+    G_FORMAT --> G_CSV
+    G_FORMAT -.-> G_METRICS
+    
+    G_FATO --> BI
+    G_CSV --> REPORTS
+    G_FATO --> ML
+    
+    style SOURCES fill:#0277bd,color:#fff,stroke:#01579b,stroke-width:3px
+    style API fill:#0288d1,color:#fff
+    style API_MCO fill:#039be5,color:#fff
+    style API_GPS fill:#039be5,color:#fff
+    style API_LINHAS fill:#039be5,color:#fff
+    
+    style LANDING fill:#f57c00,color:#fff,stroke:#e65100,stroke-width:3px
+    style DOWN fill:#fb8c00,color:#fff
+    
+    style BRONZE fill:#d84315,color:#fff,stroke:#bf360c,stroke-width:3px
+    style B_FORMAT fill:#e64a19,color:#fff
+    style B_GPS fill:#ff6e40,color:#000
+    style B_MCO fill:#ff6e40,color:#000
+    style B_LINHAS fill:#ff6e40,color:#000
+    
+    style SILVER fill:#512da8,color:#fff,stroke:#311b92,stroke-width:3px
+    style S_FORMAT fill:#5e35b1,color:#fff
+    style S_GPS fill:#7e57c2,color:#fff
+    style S_MCO fill:#7e57c2,color:#fff
+    style S_LINHAS fill:#7e57c2,color:#fff
+    style S_VALID fill:#9575cd,color:#fff
+    
+    style GOLD fill:#f9a825,color:#000,stroke:#f57f17,stroke-width:3px
+    style G_FORMAT fill:#fbc02d,color:#000
+    style G_FATO fill:#fdd835,color:#000
+    style G_CSV fill:#fff59d,color:#000
+    style G_METRICS fill:#ffee58,color:#000
+    
+    style CONSUME fill:#2e7d32,color:#fff,stroke:#1b5e20,stroke-width:3px
+    style BI fill:#388e3c,color:#fff
+    style ML fill:#388e3c,color:#fff
+    style REPORTS fill:#388e3c,color:#fff
 ```
 
 ### Diagrama Estrutural do Fluxo ETL
@@ -50,53 +143,82 @@ graph LR
 ```mermaid
 graph TD
     subgraph "Dados de Entrada"
-        MCO["MCO Dataset"]
-        GPS["GPS Dataset"]
-        LINHAS["Linhas Dataset"]
+        MCO["MCO Dataset<br/>(API PBH)"]
+        GPS["GPS Dataset<br/>(API PBH)"]
+        LINHAS["Linhas Dataset<br/>(API PBH)"]
     end
     
     subgraph "Bronze Layer - Raw Data"
         BMCO["ingestao_mco.py"]
         BGPS["ingestao_gps.py"]
         BLINHAS["ingestao_linhas.py"]
+        
+        TB_BMCO[("bronze/mco/<br/>Parquet")]
+        TB_BGPS[("bronze/gps/<br/>Parquet")]
+        TB_BLINHAS[("bronze/linhas/<br/>Parquet")]
     end
     
     subgraph "Silver Layer - Data Cleaning"
         SMCO["processar_mco.py"]
         SGPS["processar_gps.py"]
         SLINHAS["processar_linhas.py"]
+        
+        TB_SMCO[("silver/mco/<br/>Delta Lake")]
+        TB_SGPS[("silver/gps/<br/>Delta Lake")]
+        TB_SLINHAS[("silver/linhas/<br/>Delta Lake")]
     end
     
     subgraph "Gold Layer - Data Mart"
         FATO["fato_viagem.py"]
-        CSV["Export CSV"]
+        
+        TB_FATO[("gold/fato_performance_diaria/<br/>Delta Lake")]
+        TB_CSV[("gold/fato_performance_diaria_csv/<br/>CSV")]
     end
     
     MCO --> BMCO
     GPS --> BGPS
     LINHAS --> BLINHAS
     
-    BMCO --> SMCO
-    BGPS --> SGPS
-    BLINHAS --> SLINHAS
+    BMCO --> TB_BMCO
+    BGPS --> TB_BGPS
+    BLINHAS --> TB_BLINHAS
     
-    SMCO --> FATO
-    SGPS --> FATO
-    SLINHAS --> FATO
+    TB_BMCO --> SMCO
+    TB_BGPS --> SGPS
+    TB_BLINHAS --> SLINHAS
     
-    FATO --> CSV
+    SMCO --> TB_SMCO
+    SGPS --> TB_SGPS
+    SLINHAS --> TB_SLINHAS
+    
+    TB_SMCO --> FATO
+    TB_SGPS --> FATO
+    TB_SLINHAS --> FATO
+    
+    FATO --> TB_FATO
+    FATO --> TB_CSV
     
     style MCO fill:#c62828,color:#fff
     style GPS fill:#c62828,color:#fff
     style LINHAS fill:#c62828,color:#fff
+    
     style BMCO fill:#d84315,color:#fff
     style BGPS fill:#d84315,color:#fff
     style BLINHAS fill:#d84315,color:#fff
+    style TB_BMCO fill:#ff6e40,color:#000
+    style TB_BGPS fill:#ff6e40,color:#000
+    style TB_BLINHAS fill:#ff6e40,color:#000
+    
     style SMCO fill:#512da8,color:#fff
     style SGPS fill:#512da8,color:#fff
     style SLINHAS fill:#512da8,color:#fff
-    style FATO fill:#fbc02d,color:#000
-    style CSV fill:#fbc02d,color:#000
+    style TB_SMCO fill:#7e57c2,color:#fff
+    style TB_SGPS fill:#7e57c2,color:#fff
+    style TB_SLINHAS fill:#7e57c2,color:#fff
+    
+    style FATO fill:#f9a825,color:#000
+    style TB_FATO fill:#fdd835,color:#000
+    style TB_CSV fill:#fff59d,color:#000
 ```
 
 ## Estrutura de Diretórios
