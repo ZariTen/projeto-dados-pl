@@ -11,6 +11,6 @@ SILVER_DIR = os.path.join(DATA_DIR, "silver")
 GOLD_DIR = os.path.join(DATA_DIR, "gold")
 
 # URLs dos Datasets (PBH)
-URL_MCO = "https://dados.pbh.gov.br/dataset/mapa-de-controle-operacional-mco-consolidado-a-partir-de-abril-de-2022/resource/123b7a8a-ceb1-4f8c-9ec6-9ce76cdf9aab/download/mco_consolidado.csv"
+URL_MCO = "https://ckan.pbh.gov.br/dataset/da1f99d3-3dd6-4bdb-8ca4-91f94da93eff/resource/eebe35cb-aad8-4289-9d28-8a69f51ff484/download/mco-07-2020.csv"
 URL_GPS = "https://dados.pbh.gov.br/datastore/dump/88101fac-7200-4476-8c4f-09e1663c435e?bom=True"
 URL_LINHAS = "https://dados.pbh.gov.br/datastore/dump/150bddd0-9a2c-4731-ade9-54aa56717fb6?bom=True"

@@ -15,16 +15,6 @@ def run_fato_performance_diaria(spark: SparkSession):
         df_linhas = spark.read.format("delta").load(os.path.join(silver_path, "linhas"))
         df_mco = spark.read.format("delta").load(os.path.join(silver_path, "mco"))
 
-        # O GPS original é de Julho/2020. O MCO é de Setembro/2025.
-        # Adicionar 5 anos e 47 dias para alinhar as distribuições de dias da semana.
-        df_gps = df_gps.withColumn(
-            "data_particao_original", F.col("data_particao")
-        ).withColumn(
-            "data_particao", 
-            F.expr("data_particao + INTERVAL 5 YEARS + INTERVAL 47 DAYS")
-        )
-        
-
         # 1. PREPARAÇÃO DE CHAVES
         
         df_gps = df_gps.withColumn("join_cod_publico", F.col("numero_linha").cast("int"))
@@ -48,10 +38,6 @@ def run_fato_performance_diaria(spark: SparkSession):
             how="left"
         )
         
-        # Garantir tratamento de nulos
-        if "total_usuarios" not in df_mco_enriched.columns:
-             df_mco_enriched = df_mco_enriched.withColumn("total_usuarios", F.lit(0))
-
         df_mco_agg = df_mco_enriched.groupBy(
             "data_viagem", 
             "numero_linha", 
@@ -65,7 +51,6 @@ def run_fato_performance_diaria(spark: SparkSession):
             F.count("*").alias("qtd_viagens_realizadas"),
             F.sum(F.col("teve_falha_mecanica").cast("int")).alias("qtd_falhas_mecanicas"),
             F.round(F.avg("duracao_viagem_minutos"), 2).alias("duracao_media_viagem_min"),
-            F.sum("total_usuarios").alias("total_passageiros")
         )
 
         # 4. JOIN FINAL (MCO + GPS)
@@ -87,7 +72,6 @@ def run_fato_performance_diaria(spark: SparkSession):
                 F.col("mco.nome_consorcio"),
                 
                 "qtd_viagens_realizadas",
-                "total_passageiros",
                 "qtd_falhas_mecanicas",
                 "duracao_media_viagem_min",
                 

@@ -11,7 +11,6 @@
 
 **Regras de negócio principais:**
 - GPS filtrado para velocidade entre 0 e 120 km/h.
-- Datas do GPS ajustadas em +5 anos e +47 dias para alinhamento de distribuição semanal.
 - Valores nulos de `vel_media_gps` e `distancia_total_gps_metros` preenchidos com 0.
 
 #### Campos
@@ -24,7 +23,6 @@
 | `nome_linha` | string | Nome da linha. | `linhas.nome_bruto` |
 | `nome_consorcio` | string | Consórcio da linha. | `mco.nome_consorcio` |
 | `qtd_viagens_realizadas` | long | Quantidade de viagens realizadas no dia. | `count(*)` do MCO |
-| `total_passageiros` | long | Total de passageiros no dia. | `sum(total_usuarios)` do MCO |
 | `qtd_falhas_mecanicas` | long | Total de falhas mecânicas no dia. | `sum(teve_falha_mecanica)` |
 | `duracao_media_viagem_min` | double | Duração média das viagens (min). | `avg(duracao_viagem_minutos)` |
 | `vel_media_gps` | double | Velocidade média do GPS no dia (km/h). | `avg(velocidade_kmh)` (GPS filtrado) |

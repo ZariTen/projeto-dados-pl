@@ -21,7 +21,6 @@ def sanitize_and_cast_columns(df: DataFrame) -> DataFrame:
     return df.withColumn("data_viagem", F.to_date(F.col("viagem"), "dd/MM/yyyy")) \
         .withColumn("dh_fechamento", F.to_timestamp(F.col("data_fechamento"), "dd/MM/yyyy HH:mm")) \
         .withColumn("extensao_metros", F.col("extensao").cast(IntegerType())) \
-        .withColumn("total_usuarios", F.col("total_usuarios").cast(IntegerType())) \
         .withColumn("numero_linha", F.col("sublinha").cast(IntegerType())) \
         .withColumn("pc", F.col("pc").cast(IntegerType())) \
         .withColumn("catraca_saida", F.col("catraca_saida").cast(LongType())) \
