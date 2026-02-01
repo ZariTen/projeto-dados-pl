@@ -4,6 +4,7 @@ from pyspark.sql import SparkSession, DataFrame
 from pyspark.sql import functions as F
 from pyspark.sql.types import IntegerType
 from src.utils.save import save_to_gold
+from src.etl.gold.validar_gold import validate_fato_performance_structure, validate_fato_performance_data_quality
 
 # Constantes
 FATO_FINAL_COLUMNS = [
@@ -158,6 +159,10 @@ def run_fato_performance_diaria(
 
         # Processamento
         df_final = process_fato_performance_pipeline(df_gps, df_linhas, df_mco)
+
+        # Validações
+        validate_fato_performance_structure(df_final, FATO_FINAL_COLUMNS)
+        validate_fato_performance_data_quality(df_final)
 
         df_final.write.option("header", True).csv("data/gold/fato_performance_diaria_csv", mode="overwrite")
         
