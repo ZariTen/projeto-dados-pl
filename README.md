@@ -43,7 +43,7 @@ graph TB
     end
     
     subgraph LANDING["Landing Zone"]
-        DOWN["Download HTTP<br/>Dados JSON brutos"]
+        DOWN["Download HTTP<br/>Dados CSV brutos"]
     end
     
     subgraph BRONZE["Bronze Layer"]
